@@ -3,7 +3,9 @@
 ## Dependências
 
 Para a funcionalidade da api você precisa de um banco de dados mysql e configurar o db.ts
+
 Mas no futuro o ideal será ter uma ORM e deixar esse setup mais simples.
+
 Outra dependência importante é o dotenv para que as informações sensíveis não esteja aqui no github.
 
 ## Instalação
