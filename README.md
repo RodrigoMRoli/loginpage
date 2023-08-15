@@ -10,15 +10,19 @@ Outra dependência importante é o dotenv para que as informações sensíveis n
 
 Por enquanto a única feature funcional de fato é a api. Então, assumindo que esteja na pasta raíz:
 
+```
    npm install
    cd api
    npm install
+```
 
 ## Execução
 
 Para rodar a api vá para a pasta dela execute:
 
+```
    npm run start
+```
 
 A api estará rodando a partir daí
 
