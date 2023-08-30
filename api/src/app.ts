@@ -1,30 +1,51 @@
 import express from 'express'
-import jwt from 'jsonwebtoken'
-import { getUserByUsername, comparePassword, registerUser } from './service/userService.js'
+import { getUserByUsername, comparePassword, registerUser, getUserById } from './service/userService.js'
+import { generateAccessToken, generateRefreshToken, invalidateToken, refresh, storeRefreshToken, verifyAccessToken } from './middleware/authHandler.js'
 import IUser from './interface/IUser.js'
 import dotenv from 'dotenv'
-import verifyToken from './middleware/verifyToken.js'
+import getStoredTokens from './service/authService.js'
 
 // env variables
 dotenv.config();
 const port = process.env.PORT
-const secret = process.env.TOKEN_SECRET as string
 
 const app = express()
 app.use(express.json())
 
 // auth requests
-app.use('/api', verifyToken)
 
-app.get('/api', (req, res) => {
+app.get("/", (req, res) => {
+    const message = "Api esta em funcionamento"
+    res.status(200).send(message)
+})
+
+app.get("/storedTokens", verifyAccessToken, (req, res) => {
+    try {
+        const tokens = getStoredTokens()
+        res.status(200).send(tokens)
+    } catch (err) {
+        res.status(500).send("Error on getting stored tokens")
+    }
+})
+
+app.get('/api', verifyAccessToken, (req, res) => {
     const message = "Eu estou autorizado"
     res.status(200).send(message)
 })
 
-app.post('/login', (req, res) => {
-    const { username, password, expiration } = req.body
+app.post('/token', refresh, (req, res) => {
+    if (res.locals.authenticated) {
+        const response = {
+            accesToken: res.locals.accessToken
+        }
+        res.status(200).send(response)
+    }
+})
 
-    getUserByUsername(username, (results: IUser[]) => {
+app.post('/login', (req, res) => {
+    const { username, password } = req.body
+
+    getUserByUsername(username, (results: Array<IUser>) => {
         if (results.length > 0) {
             const user = results[0]
             comparePassword(password, user.password, (result: IUser) => {
@@ -33,11 +54,18 @@ app.post('/login', (req, res) => {
                         id: user.id,
                         username: user.username,
                         email: user.email,
-                        auth: "default",
-                        isAdmin: true,
+                        auth: user.auth,
+                        isAdmin: user.isAdmin,
+                        isFresh: true // isFresh is a flag in which saves if the user just logged in with credentials or if's refreshed by refresh token
+                    } as IUser
+                    const accessToken = generateAccessToken(payload)
+                    const refreshToken = generateRefreshToken(payload)
+                    if (!storeRefreshToken(refreshToken)) res.status(500).json({ message: "Error when storing the refresh token" })
+                    const response = {
+                        accessToken: accessToken,
+                        refreshToken: refreshToken
                     }
-                    const token = jwt.sign(payload, secret, { expiresIn: expiration + 'm' })
-                    res.status(200).json({ token: token })
+                    res.status(200).json(response)
                 } else {
                     res.status(401).json({ message: 'Invalid password' })
                 }
@@ -49,9 +77,9 @@ app.post('/login', (req, res) => {
 })
 
 app.post('/register', (req, res) => {
-    const { username, password, email } = req.body
+    const { username, password, email, auth, isAdmin } = req.body
   
-    registerUser(username, password, email, (result) => {
+    registerUser(username, password, email, auth, isAdmin, (result) => {
         if (result.affectedRows > 0) {
             res.json({ message: 'Registration successful' })
         } else {
@@ -60,7 +88,8 @@ app.post('/register', (req, res) => {
     })
 })
 
+app.delete('/logout', invalidateToken)
+
 app.listen(port, () => {
     console.log(`Server running on port ${port}`)
 })
-

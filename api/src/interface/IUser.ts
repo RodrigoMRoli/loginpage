@@ -3,5 +3,9 @@ export default interface IUser {
     username: string;
     password: string;
     email: string | null;
+    auth: string;
+    isAdmin: boolean;
+    isFresh: boolean;
+    iat: undefined | Date;
     created_at: Date;
 }
